@@ -6,8 +6,8 @@
 # Docker images to build GNU Octave <https://www.octave.org>.
 
 
-FROM  gnuoctave/octave-build:4
-LABEL maintainer="Kai T. Ohlhus <k.ohlhus@gmail.com>"
+FROM  suever/octave-build:4
+LABEL maintainer="Jonathan Suever <suever@gmail.com>"
 
 ENV LAST_UPDATED=2022-08-01
 
@@ -30,7 +30,7 @@ RUN mkdir -p /tmp/build   && \
     make install  && \
     rm -rf /tmp/build
 
-ARG NB_USER="jovyan"
+ARG NB_USER="octave"
 ARG NB_UID="1111"
 ARG NB_GID="100"
 
@@ -56,7 +56,7 @@ ENV SHELL=/bin/bash \
 COPY jupyterlab/start.sh jupyterlab/fix-permissions /usr/local/bin/
 RUN chmod a+rx /usr/local/bin/fix-permissions
 
-# Create NB_USER with name jovyan user with UID=$NB_UID and in the 'users' group
+# Create NB_USER with name octave user with UID=$NB_UID and in the 'users' group
 # and make sure these dirs are writable by the `users` group.
 RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su && \
     sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers && \
@@ -65,7 +65,7 @@ RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su && \
     chmod g+w /etc/passwd && \
     fix-permissions "${HOME}"
 
-# Switch back to jovyan to avoid accidental container runs as root
+# Switch back to octave to avoid accidental container runs as root
 USER ${NB_UID}
 
 WORKDIR "${HOME}"

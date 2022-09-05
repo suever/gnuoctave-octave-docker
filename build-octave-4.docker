@@ -6,8 +6,8 @@
 # Docker images to build GNU Octave <https://www.octave.org>.
 
 
-FROM  ubuntu:16.04
-LABEL maintainer="Kai T. Ohlhus <k.ohlhus@gmail.com>"
+FROM  ubuntu:20.04
+LABEL maintainer="Jonathan Suever <suever@gmail.com>"
 
 ENV LAST_UPDATED=2022-08-01
 
@@ -25,6 +25,7 @@ RUN apt-get --yes update  && \
       curl \
       dbus \
       epstool \
+      fig2dev \
       flex \
       g++ \
       gcc \
@@ -56,13 +57,7 @@ RUN apt-get --yes update  && \
       libpcre3-dev \
       libqhull-dev \
       libqrupdate-dev \
-      libqscintilla2-dev \
-      libqt4-dev \
-      libqtcore4 \
-      libqtwebkit4 \
-      libqt4-network \
-      libqtgui4 \
-      libqt4-opengl-dev \
+      libqscintilla2-qt5-dev \
       libreadline-dev \
       librsvg2-bin \
       libsndfile1-dev \
@@ -85,8 +80,7 @@ RUN apt-get --yes update  && \
       sudo \
       tar \
       texinfo \
-      texlive \
-      texlive-generic-recommended \
+      texlive-latex-extra \
       transfig \
       unzip \
       wget \
