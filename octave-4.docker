@@ -1,74 +1,132 @@
-# gnu-octave/docker
+# Headless GNU Octave 4.x built on a supported Ubuntu release.
+#
+# The build stage compiles Octave from source and the final stage only carries
+# the shared libraries Octave links against, gnuplot and ghostscript for
+# figures, and a C++ toolchain so that `pkg install` can still compile .oct files.
 
-# Please follow docker best practices
-# https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/
-
-# Docker images to build GNU Octave <https://www.octave.org>.
-
-
-FROM  suever/octave-build:4
-LABEL maintainer="Jonathan Suever <suever@gmail.com>"
-
-ENV LAST_UPDATED=2022-08-01
-
-
-# Install Octave
-
-# `OCTAVE_VERSION` specified by `DOCKER_TAG`, set in `hooks/build`.
-# https://docs.docker.com/docker-hub/builds/advanced/#environment-variables-for-building-and-testing
+FROM ubuntu:24.04 AS build
 
 ARG OCTAVE_VERSION
 
-RUN mkdir -p /tmp/build   && \
-    cd       /tmp/build   && \
-    wget -q "https://ftpmirror.gnu.org/octave/octave-${OCTAVE_VERSION}.tar.gz"  && \
-    tar -xf octave-${OCTAVE_VERSION}.tar.gz  && \
-    cd      octave-${OCTAVE_VERSION}         && \
-    ./configure   && \
-    make -j8      && \
-    # make check    && \
-    make install  && \
-    rm -rf /tmp/build
+RUN apt-get --yes update && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get --no-install-recommends --yes install \
+      autoconf \
+      automake \
+      bison \
+      build-essential \
+      ca-certificates \
+      flex \
+      gfortran \
+      gperf \
+      libarpack2-dev \
+      libbz2-dev \
+      libcurl4-gnutls-dev \
+      libfftw3-dev \
+      libfontconfig-dev \
+      libfreetype-dev \
+      libglpk-dev \
+      libgraphicsmagick++1-dev \
+      libhdf5-dev \
+      liblapack-dev \
+      libncurses-dev \
+      libopenblas-dev \
+      libpcre3-dev \
+      libqhull-dev \
+      libqrupdate-dev \
+      libreadline-dev \
+      libsndfile1-dev \
+      libsuitesparse-dev \
+      libtool \
+      patch \
+      perl \
+      pkg-config \
+      wget \
+      zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-ARG NB_USER="octave"
-ARG NB_UID="1111"
-ARG NB_GID="100"
+COPY patches/${OCTAVE_VERSION} /tmp/patches
 
-# Fix DL4006
+# Octave 4.2 predates C++17 and GCC 10's stricter Fortran argument checks. Its
+# configure script also leaves the gnuplot binary empty when gnuplot isn't
+# installed at build time, so set it explicitly.
+RUN mkdir -p /tmp/build && \
+    cd /tmp/build && \
+    wget -q "https://ftpmirror.gnu.org/octave/octave-${OCTAVE_VERSION}.tar.gz" && \
+    tar -xf "octave-${OCTAVE_VERSION}.tar.gz" && \
+    cd "octave-${OCTAVE_VERSION}" && \
+    for patch in /tmp/patches/*.patch; do patch -p1 < "${patch}"; done && \
+    ./configure \
+      GNUPLOT=gnuplot \
+      CFLAGS="-O2" \
+      CXXFLAGS="-O2 -std=gnu++11" \
+      FFLAGS="-O2 -fallow-argument-mismatch" \
+      --disable-docs \
+      --disable-java \
+      --without-qt \
+      --without-fltk \
+      --without-opengl \
+      --without-osmesa \
+      --without-portaudio && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -rf /tmp/build /tmp/patches
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-USER root
+# Record which system packages provide the shared libraries Octave links
+# against. Packages may register their files under either /lib or /usr/lib so
+# match on both.
+RUN { find /usr/local -type f \( -name "*.so*" -o -name "*.oct" -o -perm -u+x \) \
+        -exec ldd {} + 2>/dev/null || true; } | \
+    awk '/=> \// { print $3 }' | \
+    grep -v "^/usr/local/" | \
+    sort -u | \
+    xargs realpath | \
+    sed -e "s|^/usr||" -e "s|^|*|" | \
+    xargs dpkg -S | \
+    grep -v "^diversion by " | \
+    cut -d: -f1 | \
+    sort -u > /usr/local/share/octave-runtime-packages.txt
+
+
+FROM ubuntu:24.04
+
+LABEL maintainer="Jonathan Suever <suever@gmail.com>"
+
+COPY --from=build /usr/local /usr/local
+
+RUN apt-get --yes update && \
+    apt-get --yes upgrade && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get --no-install-recommends --yes install \
+      $(cat /usr/local/share/octave-runtime-packages.txt) \
+      ca-certificates \
+      fonts-dejavu-core \
+      g++ \
+      ghostscript \
+      gnuplot-nox \
+      locales \
+      make \
+      wget && \
+    rm -rf /var/lib/apt/lists/* && \
+    ldconfig
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
 
-# Configure environment
-ENV SHELL=/bin/bash \
-    NB_USER="${NB_USER}" \
-    NB_UID=${NB_UID} \
-    NB_GID=${NB_GID} \
-    LC_ALL=en_US.UTF-8 \
+ARG NB_USER="octave"
+ARG NB_UID="1111"
+
+ENV LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8 \
     HOME="/home/${NB_USER}"
 
-# Copy a script that we will use to correct permissions after running certain commands
-COPY jupyterlab/start.sh jupyterlab/fix-permissions /usr/local/bin/
-RUN chmod a+rx /usr/local/bin/fix-permissions
+RUN useradd -l -m -s /bin/bash -u "${NB_UID}" "${NB_USER}"
 
-# Create NB_USER with name octave user with UID=$NB_UID and in the 'users' group
-# and make sure these dirs are writable by the `users` group.
-RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su && \
-    sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers && \
-    sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers && \
-    useradd -l -m -s /bin/bash -N -u "${NB_UID}" "${NB_USER}" && \
-    chmod g+w /etc/passwd && \
-    fix-permissions "${HOME}"
-
-# Switch back to octave to avoid accidental container runs as root
 USER ${NB_UID}
 
 WORKDIR "${HOME}"
 
-ENTRYPOINT ["/usr/local/bin/start.sh"]
 CMD ["octave-cli"]
