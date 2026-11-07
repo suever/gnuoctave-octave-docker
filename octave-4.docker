@@ -1,8 +1,8 @@
 # Headless GNU Octave 4.x built on a supported Ubuntu release.
 #
 # The build stage compiles Octave from source and the final stage only carries
-# the shared libraries Octave links against, gnuplot for figures, and a C++
-# toolchain so that `pkg install` can still compile .oct files.
+# the shared libraries Octave links against, gnuplot and ghostscript for
+# figures, and a C++ toolchain so that `pkg install` can still compile .oct files.
 
 FROM ubuntu:24.04 AS build
 
@@ -104,6 +104,7 @@ RUN apt-get --yes update && \
       ca-certificates \
       fonts-dejavu-core \
       g++ \
+      ghostscript \
       gnuplot-nox \
       locales \
       make \
