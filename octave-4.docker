@@ -23,6 +23,8 @@ RUN apt-get --yes update && \
       libbz2-dev \
       libcurl4-gnutls-dev \
       libfftw3-dev \
+      libfontconfig-dev \
+      libfreetype-dev \
       libglpk-dev \
       libgraphicsmagick++1-dev \
       libhdf5-dev \
@@ -100,6 +102,7 @@ RUN apt-get --yes update && \
     apt-get --no-install-recommends --yes install \
       $(cat /usr/local/share/octave-runtime-packages.txt) \
       ca-certificates \
+      fonts-dejavu-core \
       g++ \
       gnuplot-nox \
       locales \
