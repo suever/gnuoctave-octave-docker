@@ -80,6 +80,7 @@ RUN { find /usr/local -type f \( -name "*.so*" -o -name "*.oct" -o -perm -u+x \)
     xargs realpath | \
     sed -e "s|^/usr||" -e "s|^|*|" | \
     xargs dpkg -S | \
+    grep -v "^diversion by " | \
     cut -d: -f1 | \
     sort -u > /usr/local/share/octave-runtime-packages.txt
 
