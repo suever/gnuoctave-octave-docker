@@ -63,17 +63,22 @@ RUN mkdir -p /tmp/build && \
       --without-opengl \
       --without-osmesa \
       --without-portaudio && \
-    make -k -j"$(nproc)" && \
+    make -j"$(nproc)" && \
     make install && \
     rm -rf /tmp/build /tmp/patches
 
-# Record which system packages provide the shared libraries Octave links against
-RUN find /usr/local -type f \( -name "*.so*" -o -name "*.oct" -o -perm -u+x \) \
-      -exec ldd {} + 2>/dev/null | \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Record which system packages provide the shared libraries Octave links
+# against. Packages may register their files under either /lib or /usr/lib so
+# match on both.
+RUN { find /usr/local -type f \( -name "*.so*" -o -name "*.oct" -o -perm -u+x \) \
+        -exec ldd {} + 2>/dev/null || true; } | \
     awk '/=> \// { print $3 }' | \
     grep -v "^/usr/local/" | \
     sort -u | \
     xargs realpath | \
+    sed -e "s|^/usr||" -e "s|^|*|" | \
     xargs dpkg -S | \
     cut -d: -f1 | \
     sort -u > /usr/local/share/octave-runtime-packages.txt
