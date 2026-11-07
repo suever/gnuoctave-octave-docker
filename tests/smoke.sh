@@ -24,7 +24,6 @@ octave-cli --eval '
   pkg load image
   pkg load statistics
 
-  assert (graphics_toolkit (), "gnuplot")
   assert (hello (), 42)
 
   assert (regexprep ("abc", "b", "x"), "axc")
@@ -51,6 +50,7 @@ octave-cli --eval '
   assert (exist ("audio.wav", "file"), 2)
 
   figure ("visible", "off");
+  assert (get (gcf (), "__graphics_toolkit__"), "gnuplot")
   plot (1:10);
   print ("-dpng", "-r72", "plot.png");
   assert (exist ("plot.png", "file"), 2)
