@@ -45,7 +45,9 @@ RUN apt-get --yes update && \
 
 COPY patches/${OCTAVE_VERSION} /tmp/patches
 
-# Octave 4.2 predates C++17 and GCC 10's stricter Fortran argument checks
+# Octave 4.2 predates C++17 and GCC 10's stricter Fortran argument checks. Its
+# configure script also leaves the gnuplot binary empty when gnuplot isn't
+# installed at build time, so set it explicitly.
 RUN mkdir -p /tmp/build && \
     cd /tmp/build && \
     wget -q "https://ftpmirror.gnu.org/octave/octave-${OCTAVE_VERSION}.tar.gz" && \
@@ -53,6 +55,7 @@ RUN mkdir -p /tmp/build && \
     cd "octave-${OCTAVE_VERSION}" && \
     for patch in /tmp/patches/*.patch; do patch -p1 < "${patch}"; done && \
     ./configure \
+      GNUPLOT=gnuplot \
       CFLAGS="-O2" \
       CXXFLAGS="-O2 -std=gnu++11" \
       FFLAGS="-O2 -fallow-argument-mismatch" \
