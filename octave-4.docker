@@ -36,11 +36,14 @@ RUN apt-get --yes update && \
       libsndfile1-dev \
       libsuitesparse-dev \
       libtool \
+      patch \
       perl \
       pkg-config \
       wget \
       zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
+
+COPY patches/${OCTAVE_VERSION} /tmp/patches
 
 # Octave 4.2 predates C++17 and GCC 10's stricter Fortran argument checks
 RUN mkdir -p /tmp/build && \
@@ -48,6 +51,7 @@ RUN mkdir -p /tmp/build && \
     wget -q "https://ftpmirror.gnu.org/octave/octave-${OCTAVE_VERSION}.tar.gz" && \
     tar -xf "octave-${OCTAVE_VERSION}.tar.gz" && \
     cd "octave-${OCTAVE_VERSION}" && \
+    for patch in /tmp/patches/*.patch; do patch -p1 < "${patch}"; done && \
     ./configure \
       CFLAGS="-O2" \
       CXXFLAGS="-O2 -std=gnu++11" \
@@ -59,9 +63,9 @@ RUN mkdir -p /tmp/build && \
       --without-opengl \
       --without-osmesa \
       --without-portaudio && \
-    make -j"$(nproc)" && \
+    make -k -j"$(nproc)" && \
     make install && \
-    rm -rf /tmp/build
+    rm -rf /tmp/build /tmp/patches
 
 # Record which system packages provide the shared libraries Octave links against
 RUN find /usr/local -type f \( -name "*.so*" -o -name "*.oct" -o -perm -u+x \) \
